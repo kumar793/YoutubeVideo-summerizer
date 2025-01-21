@@ -34,7 +34,7 @@ def validate_url(url):
                 chain = load_summarize_chain(llm,chain_type = "stuff",
                                             prompt = prompt)
                 
-                output = chain.invoke(data)
+                output = chain.run(data)
 
                 return output
         except Exception as e:
