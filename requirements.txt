@@ -4,6 +4,7 @@ ipykernel
 langchain-community
 pypdf
 bs4
+langchain_google_genai 
 arxiv
 pymupdf
 wikipedia
