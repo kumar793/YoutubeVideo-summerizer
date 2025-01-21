@@ -10,6 +10,10 @@ context = {text}
 """
 prompt = PromptTemplate(template=prompt_temp,input_variables=['text'])
 
+st.set_page_config(page_title="LangChain: Summarize Text From YT or Website", page_icon="🦜")
+st.title("🦜 LangChain: Summarize Text From YT or Website")
+st.subheader('Summarize URL')
+
 def validate_url(url):
     if not url.strip():
         return "Please provide the information"
@@ -21,7 +25,9 @@ def validate_url(url):
                 if "youtube.com" in url:
                     loader = YoutubeLoader.from_youtube_url(url,add_video_info = True)
                 else:
-                    loader = UnstructuredURLLoader(urls=[url],ssl_verify = False)
+                    loader=UnstructuredURLLoader(urls=[generic_url],ssl_verify=False,
+                                                 headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36"})
+                
                 data = loader.load()
 
                 chain = load_summarize_chain(llm,chain_type = "stuff",
