@@ -1,6 +1,7 @@
 import nltk
 import validators
 import streamlit as st
+from pytube import YouTube
 from langchain.prompts import PromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.chains.summarize import load_summarize_chain
@@ -25,7 +26,9 @@ def validate_url(url):
         try:
             with st.spinner("waiting"):
                 if "youtube.com" in url:
-                    loader = YoutubeLoader.from_youtube_url(url,add_video_info = True)
+                    yt = YouTube(url)
+                    if yt:
+                        loader = YoutubeLoader.from_youtube_url(url, add_video_info=True)
                 else:
                     loader=UnstructuredURLLoader(urls=[url],ssl_verify=False,
                                                  headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36"})
