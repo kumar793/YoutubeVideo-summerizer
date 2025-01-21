@@ -1,14 +1,9 @@
-import os
 import validators
 import streamlit as st
 from langchain.prompts import PromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.chains.summarize import load_summarize_chain
 from langchain_community.document_loaders import YoutubeLoader,UnstructuredURLLoader
-from dotenv import load_dotenv
-load_dotenv()
-os.environ["LANGCHAIN_API_KEY"] = os.getenv("LANGCHAIN_API_KEY")
-os.environ["GOOGLE_API_KEY"] = os.getenv("GOOGLE_API_KEY")
 prompt_temp = """
 Please provide the summary of the following content in 500 words.
 context = {text}
