@@ -15,6 +15,7 @@ st.set_page_config(page_title="LangChain: Summarize Text From YT or Website", pa
 st.title("🦜 LangChain: Summarize Text From YT or Website")
 st.subheader('Summarize URL')
 nltk.download('punkt_tab')
+nltk.download('averaged_perceptron_tagger_eng')
 def validate_url(url):
     if not url.strip():
         return "Please provide the information"
