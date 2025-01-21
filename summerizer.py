@@ -1,3 +1,4 @@
+import nltk
 import validators
 import streamlit as st
 from langchain.prompts import PromptTemplate
@@ -13,7 +14,7 @@ prompt = PromptTemplate(template=prompt_temp,input_variables=['text'])
 st.set_page_config(page_title="LangChain: Summarize Text From YT or Website", page_icon="🦜")
 st.title("🦜 LangChain: Summarize Text From YT or Website")
 st.subheader('Summarize URL')
-
+nltk.download('punkt_tab')
 def validate_url(url):
     if not url.strip():
         return "Please provide the information"
