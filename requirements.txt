@@ -1,6 +1,7 @@
 langchain
 python-dotenv
 ipykernel
+pytube==15.0.0
 langchain-community
 pypdf
 bs4
