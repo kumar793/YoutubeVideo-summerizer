@@ -18,7 +18,7 @@ st.subheader('Summarize URL')
 nltk.download('punkt_tab')
 nltk.download('averaged_perceptron_tagger_eng')
 def validate_url(url):
-    if not url.strip():
+    if not api_key.strip() or not generic_url.strip():
         return "Please provide the information"
     elif not validators.url(url):
         return "Please provide the valid url"
