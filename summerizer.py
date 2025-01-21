@@ -39,7 +39,7 @@ llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash",api_key = api_key)
 url = st.text_input("URL",label_visibility="collapsed")
 if st.button("summerize"):
     output = validate_url(url)
-st.success(output)
+    st.success(output)
 
 
 
