@@ -3,10 +3,10 @@ import validators
 import streamlit as st
 from urllib.parse import urlparse
 from pytube import YouTube
+from youtube_transcript_api import YouTubeTranscriptApi
 from langchain.prompts import PromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.chains.summarize import load_summarize_chain
-from langchain_community.document_loaders import YoutubeLoader, UnstructuredURLLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 # Download necessary NLTK data
@@ -33,6 +33,28 @@ def expand_youtube_url(url):
         return f"https://www.youtube.com/watch?v={video_id}"
     return url
 
+# Extract video ID from YouTube URL
+def get_video_id(url):
+    parsed_url = urlparse(url)
+    if "youtube.com" in parsed_url.netloc:
+        return parsed_url.query.split("v=")[-1].split("&")[0]
+    elif "youtu.be" in parsed_url.netloc:
+        return parsed_url.path.lstrip("/")
+    return None
+
+# Function to fetch YouTube transcript
+def fetch_youtube_transcript(url):
+    try:
+        video_id = get_video_id(url)
+        if not video_id:
+            return "Invalid YouTube URL"
+        
+        transcript = YouTubeTranscriptApi.get_transcript(video_id)
+        text = " ".join([entry["text"] for entry in transcript])
+        return text
+    except Exception as e:
+        return f"Error fetching transcript: {e}"
+
 # Function to validate and process the URL
 def validate_url(url, api_key, llm):
     if not api_key.strip() or not url.strip():
@@ -46,11 +68,12 @@ def validate_url(url, api_key, llm):
 
                 if "youtube.com" in url or "youtu.be" in url:
                     try:
-                        loader = YoutubeLoader.from_youtube_url(url, add_video_info=True)
-                        documents = loader.load()
+                        transcript_text = fetch_youtube_transcript(url)
+                        if "Error" in transcript_text:
+                            return transcript_text
 
                         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-                        texts = text_splitter.split_documents(documents)
+                        texts = text_splitter.split_text(transcript_text)
 
                         chain = load_summarize_chain(llm, chain_type="stuff", prompt=prompt)
                         output = chain.run(texts)
@@ -61,18 +84,7 @@ def validate_url(url, api_key, llm):
 
                 else:
                     try:
-                        loader = UnstructuredURLLoader(
-                            urls=[url],
-                            ssl_verify=False,
-                            headers={"User-Agent": "Mozilla/5.0"}
-                        )
-                        documents = loader.load()
-                        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-                        texts = text_splitter.split_documents(documents)
-
-                        chain = load_summarize_chain(llm, chain_type="stuff", prompt=prompt)
-                        output = chain.run(texts)
-                        return output
+                        return "Currently, only YouTube summarization is supported."
                     except Exception as e:
                         return f"Error processing URL: {e}"
 
