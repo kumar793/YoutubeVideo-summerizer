@@ -31,7 +31,7 @@ unstructured
 pytube
 numexpr
 huggingface_hub
-whisper
+openai-whisper
 googletrans
 moviepy==1.0.3
 imageio[ffmpeg]
