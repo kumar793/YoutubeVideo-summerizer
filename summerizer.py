@@ -1,104 +1,115 @@
 import nltk
 import validators
 import streamlit as st
-from urllib.parse import urlparse
 from pytube import YouTube
-from youtube_transcript_api import YouTubeTranscriptApi
 from langchain.prompts import PromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.chains.summarize import load_summarize_chain
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_community.document_loaders import UnstructuredURLLoader
+import whisper
+import tempfile
+from moviepy.editor import AudioFileClip
+from googletrans import Translator
 
-# Download necessary NLTK data
-nltk.download("punkt")
-nltk.download("averaged_perceptron_tagger")
+# Load Whisper Model
+model = whisper.load_model("medium")  # Options: "small", "medium", "large"
 
-# Prompt template for summarization
+# Prompt Template for Summarization
 prompt_temp = """
-Please provide the summary of the following content in 500 words.
+Please provide the summary of the following content in detail.
 context = {text}
 """
+prompt = PromptTemplate(template=prompt_temp, input_variables=['text'])
 
-prompt = PromptTemplate(template=prompt_temp, input_variables=["text"])
+st.set_page_config(page_title="Summarize YT Videos & Websites", page_icon="🦜")
+st.title("🦜 Summarize YT Videos & Websites")
+st.subheader('Transcribe, Translate & Summarize')
 
-st.set_page_config(page_title="LangChain: Summarize Text From YT or Website", page_icon="🦜")
-st.title("🦜 LangChain: Summarize Text From YT or Website")
-st.subheader("Summarize URL")
+nltk.download('punkt')
+nltk.download('averaged_perceptron_tagger')
 
-# Function to convert shortened YouTube URLs
-def expand_youtube_url(url):
-    parsed_url = urlparse(url)
-    if "youtu.be" in parsed_url.netloc:
-        video_id = parsed_url.path.lstrip("/")
-        return f"https://www.youtube.com/watch?v={video_id}"
-    return url
-
-# Extract video ID from YouTube URL
-def get_video_id(url):
-    parsed_url = urlparse(url)
-    if "youtube.com" in parsed_url.netloc:
-        return parsed_url.query.split("v=")[-1].split("&")[0]
-    elif "youtu.be" in parsed_url.netloc:
-        return parsed_url.path.lstrip("/")
-    return None
-
-# Function to fetch YouTube transcript
-def fetch_youtube_transcript(url):
+def download_audio(youtube_url):
+    """Downloads YouTube video audio and converts it to WAV format."""
     try:
-        video_id = get_video_id(url)
-        if not video_id:
-            return "Invalid YouTube URL"
+        yt = YouTube(youtube_url)
+        stream = yt.streams.filter(only_audio=True).first()
+        temp_audio_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
+        stream.download(filename=temp_audio_file.name)
         
-        transcript = YouTubeTranscriptApi.get_transcript(video_id)
-        text = " ".join([entry["text"] for entry in transcript])
-        return text
+        # Convert to WAV format
+        audio_clip = AudioFileClip(temp_audio_file.name)
+        wav_file = temp_audio_file.name.replace(".mp4", ".wav")
+        audio_clip.write_audiofile(wav_file, codec="pcm_s16le")
+        audio_clip.close()
+        
+        return wav_file
     except Exception as e:
-        return f"Error fetching transcript: {e}"
+        return f"Error downloading audio: {e}"
 
-# Function to validate and process the URL
-def validate_url(url, api_key, llm):
+def transcribe_audio(audio_path):
+    """Transcribes audio using OpenAI Whisper."""
+    try:
+        result = model.transcribe(audio_path)
+        return result["text"]
+    except Exception as e:
+        return f"Error transcribing audio: {e}"
+
+def translate_to_english(text):
+    """Translates text to English using Google Translate."""
+    try:
+        translator = Translator()
+        translated_text = translator.translate(text, dest="en")
+        return translated_text.text
+    except Exception as e:
+        return f"Error translating text: {e}"
+
+def summarize_text(text, llm):
+    """Summarizes text using LangChain and Gemini AI."""
+    try:
+        chain = load_summarize_chain(llm, chain_type="stuff", prompt=prompt)
+        return chain.run(text)
+    except Exception as e:
+        return f"Error summarizing text: {e}"
+
+def validate_url(url, llm):
+    """Validates and processes YouTube or website URLs."""
     if not api_key.strip() or not url.strip():
-        return "Please provide the information"
+        return "Please provide the API key and URL"
     elif not validators.url(url):
         return "Please provide a valid URL"
-    else:
-        try:
-            with st.spinner("Processing..."):
-                url = expand_youtube_url(url)  # Expand shortened YouTube URLs if necessary
+    
+    try:
+        with st.spinner("Processing..."):
+            if "youtube.com" in url or "youtu.be" in url:
+                # YouTube Processing
+                audio_file = download_audio(url)
+                if "Error" in audio_file:
+                    return audio_file
+                
+                transcript = transcribe_audio(audio_file)
+                if "Error" in transcript:
+                    return transcript
 
-                if "youtube.com" in url or "youtu.be" in url:
-                    try:
-                        transcript_text = fetch_youtube_transcript(url)
-                        if "Error" in transcript_text:
-                            return transcript_text
+                translated_text = translate_to_english(transcript)
+                summary = summarize_text(translated_text, llm)
+                
+                return summary
+            
+            else:
+                # Website Summarization
+                loader = UnstructuredURLLoader(urls=[url], ssl_verify=False, headers={
+                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36"
+                })
+                data = loader.load()
+                return summarize_text(data, llm)
+    
+    except Exception as e:
+        return f"An unexpected error occurred: {e}"
 
-                        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-                        texts = text_splitter.split_text(transcript_text)
-
-                        chain = load_summarize_chain(llm, chain_type="stuff", prompt=prompt)
-                        output = chain.run(texts)
-
-                        return output
-                    except Exception as e:
-                        return f"Error processing YouTube URL: {e}"
-
-                else:
-                    try:
-                        return "Currently, only YouTube summarization is supported."
-                    except Exception as e:
-                        return f"Error processing URL: {e}"
-
-        except Exception as e:
-            return f"An unexpected error occurred: {e}"
-
-# Streamlit UI
 api_key = st.sidebar.text_input("Enter the API Key", type="password")
-url = st.text_input("Enter URL")
+llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", api_key=api_key)
+url = st.text_input("Enter URL", label_visibility="collapsed")
 
 if st.button("Summarize"):
-    if not api_key:
-        st.error("API Key is required!")
-    else:
-        llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", api_key=api_key)
-        output = validate_url(url, api_key, llm)
-        st.success(output)
+    output = validate_url(url, llm)
+    st.success(output)
